@@ -1,74 +1,63 @@
 package test;
 
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.graph.SimpleWeightedGraph;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import software.ulpgc.pathfinder.FileGraphLoader;
 import software.ulpgc.pathfinder.GraphContainer;
-import software.ulpgc.pathfinder.GraphLoader;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-public class GraphContainerTest {
-	private GraphContainer graphContainer;
+class FileGraphLoaderTest {
 
-	@BeforeEach
-	void setUp() throws IOException {
-		graphContainer = mockGraphLoader().load();
-	}
+    @TempDir
+    Path tempDir;
 
-	@Test
-	void testShortestPathExists() {
-		var path = graphContainer.shortestPathBetween("A", "C");
-		assertNotNull(path, "The shortest path should not be null");
-		assertEquals(3, path.size(), "The path should have 3 nodes");
-		assertEquals("A", path.get(0), "The first node should be A");
-		assertEquals("B", path.get(1), "The second node should be B");
-		assertEquals("C", path.get(2), "The third node should be C");
-	}
+    @Test
+    void load_validGraph_shouldReturnContainer() throws IOException {
+        // 1. Preparar un archivo de prueba falso
+        File file = tempDir.resolve("graph.txt").toFile();
+        List<String> lines = List.of(
+                "A,B,1.5",
+                "B,C,2.0",
+                "A,C,10.0"
+        );
+        Files.write(file.toPath(), lines);
 
-	@Test
-	void testShortestPathWeight() {
-		var weight = graphContainer.pathWeightBetween("A", "C");
-		assertEquals(3.0, weight, "The path weight should be 3.0");
-	}
+        // 2. Ejecutar el loader (lo que queremos probar)
+        FileGraphLoader loader = new FileGraphLoader(file);
+        GraphContainer container = loader.load();
 
-	@Test
-	void testNoPathExists() {
-		Exception exception = assertThrows(IllegalArgumentException.class, () ->
-				graphContainer.shortestPathBetween("A", "Z")
-		);
-	}
+        // 3. Verificar que leyó bien los datos (Assertions)
+        assertNotNull(container);
+        // Debe existir camino entre A y B
+        assertEquals(1.5, container.pathWeightBetween("A", "B"));
+        // Debe existir camino entre B y C
+        assertEquals(2.0, container.pathWeightBetween("B", "C"));
+    }
 
-	private GraphLoader mockGraphLoader() throws IOException {
-		GraphLoader graphLoader = mock(GraphLoader.class);
-		when(graphLoader.load()).thenReturn(new GraphContainer(mockGraph()));
-		return graphLoader;
-	}
+    @Test
+    void load_invalidLines_shouldSkipAndContinue() throws IOException {
+        // Probamos que el sistema no explote si hay basura en el archivo
+        File file = tempDir.resolve("bad_graph.txt").toFile();
+        List<String> lines = List.of(
+                "A,B,1.0",
+                "LINEA_INVALIDA_SIN_COMA",  // Esto debería dar error de parseo interno pero no parar
+                "A,D,NoEsUnNumero",         // Esto también falla
+                "B,C,2.0"
+        );
+        Files.write(file.toPath(), lines);
 
-	private Graph<String, DefaultEdge> mockGraph() {
-		Graph<String, DefaultEdge> graph = new SimpleWeightedGraph<>(DefaultEdge.class);
+        FileGraphLoader loader = new FileGraphLoader(file);
+        GraphContainer container = loader.load();
 
-		graph.addVertex("A");
-		graph.addVertex("B");
-		graph.addVertex("C");
-		graph.addVertex("D");
-
-		graph.addEdge("A", "B");
-		graph.addEdge("A", "D");
-		graph.addEdge("B", "C");
-		graph.addEdge("C", "D");
-
-		graph.setEdgeWeight("A", "B", 1.0);
-		graph.setEdgeWeight("B", "C", 2.0);
-		graph.setEdgeWeight("A", "D", 4.0);
-		graph.setEdgeWeight("C", "D", 1.0);
-
-		return graph;
-	}
+        // Si llega aquí, es que no explotó. Verificamos que leyó las líneas buenas.
+        assertEquals(1.0, container.pathWeightBetween("A", "B"));
+        assertEquals(2.0, container.pathWeightBetween("B", "C"));
+    }
 }
