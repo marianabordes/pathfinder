@@ -1,0 +1,41 @@
+name: P15 - Variables de Contexto
+
+on: [push, workflow_dispatch]
+
+jobs:
+  explore-contexts:
+    runs-on: ubuntu-latest
+    env:
+      GLOBAL_VAR: "Soy una variable global"
+    steps:
+      # [cite_start]1. Contexto GITHUB [cite: 757-760]
+      - name: Inspect Github Context
+        run: |
+          echo "Repositorio: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Evento: ${{ github.event_name }}"
+          echo "Rama: ${{ github.ref }}"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run ID: ${{ github.run_id }}"
+
+      # [cite_start]2. Contexto RUNNER [cite: 1018-1021]
+      - name: Inspect Runner Context
+        run: |
+          echo "Sistema Operativo: ${{ runner.os }}"
+          echo "Arquitectura: ${{ runner.arch }}"
+          echo "Directorio Temporal: ${{ runner.temp }}"
+
+      # [cite_start]3. Contexto ENV y VARS [cite: 815-817]
+      - name: Inspect Env and Vars
+        env:
+          LOCAL_VAR: "Soy una variable local del paso"
+        run: |
+          echo "Variable Global: ${{ env.GLOBAL_VAR }}"
+          echo "Variable Local: ${{ env.LOCAL_VAR }}"
+          # Nota: vars solo funciona si las configuras en Github, si no saldrá vacío
+          # echo "Variable de Repositorio: ${{ vars.ALGUNA_VAR }}"
+
+      # [cite_start]4. Contexto JOB y STEPS [cite: 894-896] [cite_start][cite: 976-977]
+      - name: Inspect Job Status
+        if: ${{ job.status == 'success' }}
+        run: echo "El estado actual del job es SUCCESS"
